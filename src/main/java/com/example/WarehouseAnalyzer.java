@@ -149,18 +149,49 @@ class WarehouseAnalyzer {
         List<Product> products = warehouse.getProducts();
         int n = products.size();
         if (n == 0) return List.of();
-        double sum = products.stream().map(Product::price).mapToDouble(bd -> bd.doubleValue()).sum();
-        double mean = sum / n;
-        double variance = products.stream()
-                .map(Product::price)
-                .mapToDouble(bd -> Math.pow(bd.doubleValue() - mean, 2))
-                .sum() / n;
-        double std = Math.sqrt(variance);
-        double threshold = standardDeviations * std;
+
+        List<Double> prices = products.stream()
+                .map(p -> p.price().doubleValue())
+                .sorted()
+                .toList();
+
+        double median;
+        if (n % 2 == 0)
+        {
+            median = (prices.get(n/2 - 1) + prices.get(n/2)) / 2.0;
+        }
+        else
+        {
+            median = prices.get(n/2);
+        }
+
+        List<Double> absDeviations = prices.stream()
+                .map(v -> Math.abs(v - median))
+                .sorted()
+                .toList();
+
+        double mad;
+        if (n % 2 == 0)
+        {
+            mad = (absDeviations.get(n/2 - 1) + absDeviations.get(n/2)) / 2.0;
+        }
+        else
+        {
+            mad = absDeviations.get(n/2);
+        }
+
+        if (mad == 0.0) mad = 1e-9;
+
+        double sigmaEstimate = 1.4826 * mad;
+
+        double threshold = standardDeviations * sigmaEstimate;
+
         List<Product> outliers = new ArrayList<>();
-        for (Product p : products) {
-            double diff = Math.abs(p.price().doubleValue() - mean);
-            if (diff > threshold) outliers.add(p);
+        for (Product p : products)
+        {
+            double val = p.price().doubleValue();
+            double diff = Math.abs(val - median);
+            if (diff >= threshold) outliers.add(p);
         }
         return outliers;
     }
